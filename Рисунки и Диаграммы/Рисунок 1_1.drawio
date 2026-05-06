@@ -1,0 +1,61 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Страница-1" id="E2qvnQRDPm6JuZdYEVOs">
+    <mxGraphModel dx="735" dy="775" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-6" edge="1" parent="1" source="kIalMuotz2Oo-qqlEEjo-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="kIalMuotz2Oo-qqlEEjo-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CCE5FF;" value="Администратор/разаботчик" vertex="1">
+          <mxGeometry height="60" width="120" x="140" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-8" edge="1" parent="1" source="kIalMuotz2Oo-qqlEEjo-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;curved=1;" target="kIalMuotz2Oo-qqlEEjo-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CCE5FF;" value="Unity HTML5-клиент" vertex="1">
+          <mxGeometry height="60" width="110" x="550" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-7" edge="1" parent="1" source="kIalMuotz2Oo-qqlEEjo-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="kIalMuotz2Oo-qqlEEjo-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CCE5FF;" value="Проектируемая информационная система" vertex="1">
+          <mxGeometry height="60" width="120" x="350" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CCFFCC;" value="Конечный пользователь" vertex="1">
+          <mxGeometry height="60" width="110" x="550" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-9" edge="1" parent="1" source="kIalMuotz2Oo-qqlEEjo-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;curved=1;" target="kIalMuotz2Oo-qqlEEjo-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5CCFF;" value="Яндекс Метрика" vertex="1">
+          <mxGeometry height="60" width="120" x="350" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-11" edge="1" parent="1" source="kIalMuotz2Oo-qqlEEjo-2" style="endArrow=classic;startArrow=classic;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="kIalMuotz2Oo-qqlEEjo-4" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="400" y="430" as="sourcePoint" />
+            <mxPoint x="450" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-13" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="1. Настройка приложений, параметров и экспериментов" vertex="1">
+          <mxGeometry height="30" width="110" x="250" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-14" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="2. Хранение параметров и выдача значений клиенту" vertex="1">
+          <mxGeometry height="30" width="110" x="460" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-15" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="3. Применение параметров и выдача значений клиенту" vertex="1">
+          <mxGeometry height="30" width="110" x="550" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-16" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="4. Взаимодействие с приложением" vertex="1">
+          <mxGeometry height="30" width="110" x="620" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-17" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="5. Отправка событий поведения" vertex="1">
+          <mxGeometry height="30" width="120" x="563" y="409" as="geometry" />
+        </mxCell>
+        <mxCell id="kIalMuotz2Oo-qqlEEjo-18" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="6. Анализ результатов экспериментов и принятие решения" vertex="1">
+          <mxGeometry height="30" width="180" x="140" y="424" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
