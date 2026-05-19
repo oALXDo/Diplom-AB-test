@@ -81,7 +81,9 @@ button {
   border-radius: 13px;
   overflow: visible;
   background: transparent;
-  filter: drop-shadow(0 6px 13px rgba(43, 127, 255, 0.28));
+  filter:
+    drop-shadow(0 2px 4px rgba(43, 127, 255, 0.3))
+    drop-shadow(0 2px 4px rgba(43, 127, 255, 0.3));
 }
 
 .brand-mark img {
@@ -107,6 +109,26 @@ button {
   max-width: 1550px;
   margin: 0 auto;
   padding: 42px 32px;
+}
+
+.page,
+.content,
+.auth-center {
+  animation: page-enter 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.985);
+    filter: blur(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
 }
 
 .page-narrow {
@@ -735,13 +757,15 @@ pre {
   font-weight: 800;
 }
 
-.winner-cell input {
+.winner-cell input,
+.winner-cell select {
   border-color: rgba(22, 161, 99, 0.35) !important;
   background: #ecfdf3 !important;
   color: #0f7a45;
 }
 
-.loser-cell input {
+.loser-cell input,
+.loser-cell select {
   border-color: rgba(220, 38, 38, 0.25) !important;
   background: #fef2f2 !important;
   color: #991b1b;
@@ -954,5 +978,13 @@ pre {
 
   .traffic-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page,
+  .content,
+  .auth-center {
+    animation: none;
   }
 }

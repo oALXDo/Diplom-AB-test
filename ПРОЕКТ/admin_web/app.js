@@ -247,6 +247,65 @@ function currentValue(parameter) {
   return valueToString(parameter?.parameter_value);
 }
 
+function valuePlaceholder(type) {
+  if (type === 'int') return 'Например: 100';
+  if (type === 'float') return 'Например: 1.5';
+  if (type === 'bool') return '';
+  return 'Например: welcome_bonus';
+}
+
+function normalizeBoolValue(value) {
+  return String(value) === 'false' ? 'false' : 'true';
+}
+
+function typedValueControl({ name, value = '', type = 'float', field = '', disabled = false, readonly = false }) {
+  const safeName = name ? ` name="${escapeHtml(name)}"` : '';
+  const safeField = field ? ` data-field="${escapeHtml(field)}"` : '';
+  const safeType = escapeHtml(type);
+  const common = `${safeName}${safeField} class="mono" data-value-type="${safeType}" ${disabled ? 'disabled' : ''} ${readonly ? 'readonly' : ''} required`;
+
+  if (type === 'bool') {
+    const selected = normalizeBoolValue(value);
+    return `
+      <select${safeName}${safeField} class="mono" data-value-type="bool" ${disabled ? 'disabled' : ''} required>
+        <option value="true" ${selected === 'true' ? 'selected' : ''}>true</option>
+        <option value="false" ${selected === 'false' ? 'selected' : ''}>false</option>
+      </select>
+    `;
+  }
+
+  if (type === 'int') {
+    return `<input${common} inputmode="numeric" pattern="[0-9]*" placeholder="${valuePlaceholder(type)}" value="${escapeHtml(value)}">`;
+  }
+
+  if (type === 'float') {
+    return `<input${common} inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" placeholder="${valuePlaceholder(type)}" value="${escapeHtml(value)}">`;
+  }
+
+  return `<input${common} placeholder="${valuePlaceholder(type)}" value="${escapeHtml(value)}">`;
+}
+
+function sanitizeTypedValue(value, type) {
+  const text = String(value || '');
+  if (type === 'int') return text.replace(/\D/g, '');
+  if (type === 'float') {
+    const cleaned = text.replace(/[^0-9.]/g, '');
+    const firstDot = cleaned.indexOf('.');
+    if (firstDot === -1) return cleaned;
+    return `${cleaned.slice(0, firstDot + 1)}${cleaned.slice(firstDot + 1).replace(/\./g, '')}`;
+  }
+  return text;
+}
+
+function bindTypedValueControls(scope = document) {
+  scope.querySelectorAll('input[data-value-type="int"], input[data-value-type="float"]').forEach((input) => {
+    input.addEventListener('input', () => {
+      const nextValue = sanitizeTypedValue(input.value, input.dataset.valueType);
+      if (input.value !== nextValue) input.value = nextValue;
+    });
+  });
+}
+
 async function loadApplications() {
   const applications = await requestJson(`${API_BASE}/applications`);
   state.applications = sortByActivity(applications, 'application', 'application_id');
@@ -710,6 +769,7 @@ function renderParameterForm() {
   const parameter = selectedParameter();
   const isEdit = Boolean(parameter);
   const title = isEdit ? parameter.parameter_key : 'Добавить параметр';
+  const parameterType = parameter?.parameter_type || 'float';
   const content = `
     <a class="back-link" id="backToParameters">${icon('back')} Назад к параметрам</a>
     <h1 class="page-title">${escapeHtml(title)}</h1>
@@ -724,13 +784,17 @@ function renderParameterForm() {
       </label>
       <label class="field">
         <span>Тип</span>
-        <select name="parameter_type" ${isEdit ? 'disabled' : ''} required>
+        <select name="parameter_type" id="parameterTypeSelect" ${isEdit ? 'disabled' : ''} required>
           ${['float', 'int', 'string', 'bool'].map((type) => `<option value="${type}" ${parameter?.parameter_type === type ? 'selected' : ''}>${type}</option>`).join('')}
         </select>
       </label>
       <label class="field">
         <span>Текущее значение</span>
-        <input name="parameter_value" class="mono" value="${escapeHtml(currentValue(parameter))}" placeholder="1.5" required>
+        <div id="parameterValueControl">${typedValueControl({
+          name: 'parameter_value',
+          type: parameterType,
+          value: currentValue(parameter)
+        })}</div>
       </label>
       <label class="field">
         <span>Описание</span>
@@ -756,6 +820,17 @@ function renderParameterForm() {
   if (isEdit) {
     document.querySelector('#deleteCurrentParameter').addEventListener('click', () => deleteParameter(parameter.parameter_id));
   }
+  bindTypedValueControls(document.querySelector('#parameterForm'));
+  document.querySelector('#parameterTypeSelect')?.addEventListener('change', (event) => {
+    const type = event.target.value;
+    const value = type === 'bool' ? 'true' : '';
+    document.querySelector('#parameterValueControl').innerHTML = typedValueControl({
+      name: 'parameter_value',
+      type,
+      value
+    });
+    bindTypedValueControls(document.querySelector('#parameterValueControl'));
+  });
   document.querySelector('#parameterForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const data = formToObject(event.currentTarget);
@@ -875,6 +950,16 @@ function parameterOptions(selectedId) {
   `).join('');
 }
 
+function experimentValueControl(field, parameter, value, isFinished) {
+  return typedValueControl({
+    field,
+    type: parameter?.parameter_type || 'string',
+    value,
+    readonly: isFinished,
+    disabled: isFinished && parameter?.parameter_type === 'bool'
+  });
+}
+
 function variantCellClass(experiment, variantCode) {
   if (!experiment || experiment.status !== 'finished' || !experiment.winner_variant_code) {
     return '';
@@ -896,8 +981,8 @@ function configRowHtml(row = {}, experiment = null) {
         </select>
       </td>
       <td data-field="type">${parameter ? typeBadge(parameter.parameter_type) : ''}</td>
-      <td class="${variantCellClass(experiment, 'A')}"><input data-field="variant_a_value" class="mono" value="${escapeHtml(variantA)}" ${isFinished ? 'readonly' : ''} required></td>
-      <td class="${variantCellClass(experiment, 'B')}"><input data-field="variant_b_value" class="mono" value="${escapeHtml(row.variant_b_value || '')}" ${isFinished ? 'readonly' : ''} required></td>
+      <td class="${variantCellClass(experiment, 'A')}">${experimentValueControl('variant_a_value', parameter, variantA, isFinished)}</td>
+      <td class="${variantCellClass(experiment, 'B')}">${experimentValueControl('variant_b_value', parameter, row.variant_b_value || '', isFinished)}</td>
       <td>${isFinished ? '' : `<button type="button" class="icon-button" data-remove-config-row title="Удалить">${icon('trash')}</button>`}</td>
     </tr>
   `;
@@ -1010,6 +1095,7 @@ function bindExperimentConfigEvents() {
   const addButton = document.querySelector('#addConfigRow');
   const body = document.querySelector('#configRows');
   if (!addButton || !body) return;
+  bindTypedValueControls(body);
 
   addButton.addEventListener('click', () => {
     body.insertAdjacentHTML('beforeend', configRowHtml());
@@ -1021,8 +1107,9 @@ function bindExperimentConfigEvents() {
       const row = select.closest('.config-row');
       const parameter = state.parameters.find((item) => Number(item.parameter_id) === Number(select.value));
       row.querySelector('[data-field="type"]').innerHTML = parameter ? typeBadge(parameter.parameter_type) : '';
-      row.querySelector('[data-field="variant_a_value"]').value = currentValue(parameter);
-      row.querySelector('[data-field="variant_b_value"]').value = '';
+      row.children[2].innerHTML = experimentValueControl('variant_a_value', parameter, currentValue(parameter), false);
+      row.children[3].innerHTML = experimentValueControl('variant_b_value', parameter, parameter?.parameter_type === 'bool' ? 'false' : '', false);
+      bindTypedValueControls(row);
     };
   });
 
