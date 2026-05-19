@@ -1,7 +1,7 @@
 const db = require('../db');
 
 function hashUserId(userId) {
-  // Простой стабильный hash: одинаковый user_id всегда попадёт в один вариант.
+  // Простой стабильный хэш: одинаковый user_id всегда попадёт в один вариант.
   let hash = 0;
   for (let i = 0; i < userId.length; i += 1) {
     hash = (hash * 31 + userId.charCodeAt(i)) >>> 0;
@@ -75,6 +75,8 @@ async function getClientParameter(applicationId, userId, parameterKey) {
   if (parameterResult.rowCount === 0) {
     return {
       found: false,
+      parameter_key: parameterKey,
+      source_reason: 'unknown_parameter_key',
       use_fallback: true
     };
   }
@@ -111,9 +113,22 @@ async function getClientParameter(applicationId, userId, parameterKey) {
         source: 'ab_test',
         experiment_id: Number(experiment.experiment_id),
         variant_code: assignment.variant_code,
+        source_reason: 'active_experiment',
         use_fallback: false
       };
     }
+
+    return {
+      found: true,
+      parameter_key: parameter.parameter_key,
+      parameter_type: parameter.parameter_type,
+      parameter_value: valueFromRow(parameter),
+      source: 'working_value',
+      experiment_id: null,
+      variant_code: null,
+      source_reason: 'parameter_not_in_active_experiment',
+      use_fallback: false
+    };
   }
 
   return {
@@ -124,6 +139,7 @@ async function getClientParameter(applicationId, userId, parameterKey) {
     source: 'working_value',
     experiment_id: null,
     variant_code: null,
+    source_reason: 'no_active_experiment',
     use_fallback: false
   };
 }
@@ -176,6 +192,12 @@ async function finishExperiment(experimentId, winnerVariantCode) {
     if (experimentResult.rowCount === 0) {
       const error = new Error('Эксперимент не найден.');
       error.status = 404;
+      throw error;
+    }
+
+    if (experimentResult.rows[0].status !== 'active') {
+      const error = new Error('Завершить можно только активный эксперимент.');
+      error.status = 400;
       throw error;
     }
 

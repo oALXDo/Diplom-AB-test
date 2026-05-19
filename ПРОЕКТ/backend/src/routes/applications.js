@@ -5,10 +5,19 @@ const router = express.Router();
 
 router.get('/applications', async (req, res, next) => {
   try {
+    const { account_id } = req.query;
+
+    if (!account_id) {
+      return res.status(400).json({ error: 'Укажите аккаунт.' });
+    }
+
     const result = await db.query(
-      `SELECT *
-       FROM applications
-       ORDER BY application_id`
+      `SELECT app.*
+       FROM applications app
+       JOIN application_accounts aa ON aa.application_id = app.application_id
+       WHERE aa.account_id = $1
+       ORDER BY app.application_id`,
+      [account_id]
     );
     res.json(result.rows);
   } catch (error) {
@@ -25,9 +34,20 @@ router.post('/applications', async (req, res, next) => {
     }
 
     const result = await db.query(
-      `INSERT INTO applications (account_id, name, description)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
+      `WITH created AS (
+           INSERT INTO applications (name, description)
+           VALUES ($2, $3)
+           RETURNING *
+       ),
+       linked AS (
+           INSERT INTO application_accounts (application_id, account_id)
+           SELECT application_id, $1
+           FROM created
+           RETURNING application_id
+       )
+       SELECT created.*
+       FROM created
+       JOIN linked ON linked.application_id = created.application_id`,
       [account_id, name, description || null]
     );
 

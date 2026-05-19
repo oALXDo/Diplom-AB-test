@@ -17,11 +17,11 @@
 3. Откройте файл `database/schema.sql`.
 4. Выполните скрипт кнопкой `Execute`.
 
-Скрипт создаёт 6 таблиц: `accounts`, `applications`, `parameters`, `experiments`, `experiment_parameters`, `user_variant_assignments`.
+Скрипт создаёт 7 таблиц: `accounts`, `applications`, `application_accounts`, `parameters`, `experiments`, `experiment_parameters`, `user_variant_assignments`.
 
 ## 3. Выполнение `database/seed.sql`
 
-В том же `Query Tool` откройте и выполните `database/seed.sql`. Он создаст тестовый аккаунт, демо-приложение, несколько параметров и draft-эксперимент.
+В том же `Query Tool` откройте и выполните `database/seed.sql`. Он создаст тестовый аккаунт, демо-приложение, связь аккаунта с приложением, несколько параметров и тестовый эксперимент.
 
 ## 4. Настройка `.env`
 
@@ -83,6 +83,8 @@ password: admin
 
 В админке выбор приложения и эксперимента сделан через выпадающие списки. Параметры при настройке эксперимента фильтруются по выбранному приложению, чтобы случайно не добавить параметр из другого приложения. В блоке проверки `/api/parameter` ключ параметра вводится вручную, как это делает Unity-клиент.
 
+Доступ пользователей к приложениям хранится в таблице `application_accounts`. Благодаря этому одно приложение может быть доступно нескольким аккаунтам, а список приложений в админке показывается только для текущего пользователя.
+
 Для одного приложения одновременно может быть только один active-эксперимент. Это контролируется частичным уникальным индексом PostgreSQL.
 
 ## 8. Проверка endpoint `/api/parameter`
@@ -90,7 +92,7 @@ password: admin
 Пример запроса:
 
 ```text
-http://localhost:3000/api/parameter?application_id=1&user_id=test_user_1&parameter_key=reward_multiplier
+http://localhost:3000/api/parameter?application_id=1&user_id=test_user_1&parameter_key=item_1_price
 ```
 
 Если активный эксперимент есть и параметр участвует в нём, ответ будет содержать `source: "ab_test"`, `experiment_id` и `variant_code`.
@@ -114,9 +116,9 @@ public class DemoUsage : MonoBehaviour
 
     private void Start()
     {
-        parameterService.GetFloat("reward_multiplier", 1.0f, value =>
+        parameterService.GetInt("item_1_price", 20, value =>
         {
-            Debug.Log("Reward multiplier: " + value);
+            Debug.Log("Цена предмета: " + value);
             Debug.Log("Experiment: " + parameterService.LastExperimentId);
             Debug.Log("Variant: " + parameterService.LastVariantCode);
         });

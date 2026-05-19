@@ -1,53 +1,120 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Networking;
 
-// Пример Unity-клиента для WebGL/Standalone.
-// Unity обращается только к backend API и не подключается напрямую к PostgreSQL.
+// Клиент Unity обращается только к backend API.
+// Прямого подключения к PostgreSQL здесь нет.
 public class ParameterService : MonoBehaviour
 {
-    [SerializeField] private string apiBaseUrl = "http://localhost:3000";
-    [SerializeField] private long applicationId = 1;
-    [SerializeField] private string userId = "test_user_1";
+    [Header("Сервер")]
+    [SerializeField] private string apiBaseUrl = "https://your-domain.example";
+    [SerializeField] private bool logWarnings = true;
 
+    private long applicationId;
+    private string userId;
+
+    public bool IsInitialized { get; private set; }
     public long? LastExperimentId { get; private set; }
     public string LastVariantCode { get; private set; }
+    public string LastSource { get; private set; }
 
-    public void GetFloat(string parameterKey, float fallbackValue, Action<float> onComplete)
+    public void Initialize(string serverBaseUrl, long appId, string stableUserId)
     {
-        StartCoroutine(GetParameter(parameterKey, fallbackValue, value => onComplete(Convert.ToSingle(value))));
+        if (string.IsNullOrWhiteSpace(serverBaseUrl))
+        {
+            throw new ArgumentException("Адрес сервера не указан.", nameof(serverBaseUrl));
+        }
+
+        if (appId <= 0)
+        {
+            throw new ArgumentException("ID приложения должен быть больше нуля.", nameof(appId));
+        }
+
+        if (string.IsNullOrWhiteSpace(stableUserId))
+        {
+            throw new ArgumentException("User ID не указан.", nameof(stableUserId));
+        }
+
+        apiBaseUrl = NormalizeBaseUrl(serverBaseUrl);
+        applicationId = appId;
+        userId = stableUserId.Trim();
+        IsInitialized = true;
+        ClearExperimentMeta();
     }
 
-    public void GetInt(string parameterKey, int fallbackValue, Action<int> onComplete)
+    public void Initialize(long appId, string stableUserId)
     {
-        StartCoroutine(GetParameter(parameterKey, fallbackValue, value => onComplete(Convert.ToInt32(value))));
+        Initialize(apiBaseUrl, appId, stableUserId);
     }
 
-    public void GetBool(string parameterKey, bool fallbackValue, Action<bool> onComplete)
+    public void ResetClient()
     {
-        StartCoroutine(GetParameter(parameterKey, fallbackValue, value => onComplete(Convert.ToBoolean(value))));
+        applicationId = 0;
+        userId = null;
+        IsInitialized = false;
+        ClearExperimentMeta();
     }
 
-    public void GetString(string parameterKey, string fallbackValue, Action<string> onComplete)
+    public void GetFloat(string parameterKey, float defaultValue, Action<float> onComplete)
     {
-        StartCoroutine(GetParameter(parameterKey, fallbackValue, value => onComplete(Convert.ToString(value))));
+        StartCoroutine(GetParameter(parameterKey, defaultValue, onComplete));
     }
 
-    private IEnumerator GetParameter<T>(string parameterKey, T fallbackValue, Action<object> onComplete)
+    public void GetInt(string parameterKey, int defaultValue, Action<int> onComplete)
     {
-        string url = $"{apiBaseUrl}/api/parameter?application_id={applicationId}&user_id={UnityWebRequest.EscapeURL(userId)}&parameter_key={UnityWebRequest.EscapeURL(parameterKey)}";
+        StartCoroutine(GetParameter(parameterKey, defaultValue, onComplete));
+    }
+
+    public void GetBool(string parameterKey, bool defaultValue, Action<bool> onComplete)
+    {
+        StartCoroutine(GetParameter(parameterKey, defaultValue, onComplete));
+    }
+
+    public void GetString(string parameterKey, string defaultValue, Action<string> onComplete)
+    {
+        StartCoroutine(GetParameter(parameterKey, defaultValue, onComplete));
+    }
+
+    private IEnumerator GetParameter<T>(string parameterKey, T defaultValue, Action<T> onComplete)
+    {
+        if (!CanRequestParameter(parameterKey))
+        {
+            onComplete?.Invoke(defaultValue);
+            yield break;
+        }
+
+        string url =
+            $"{apiBaseUrl}/api/parameter" +
+            $"?application_id={applicationId}" +
+            $"&user_id={UnityWebRequest.EscapeURL(userId)}" +
+            $"&parameter_key={UnityWebRequest.EscapeURL(parameterKey)}";
 
         using (UnityWebRequest request = UnityWebRequest.Get(url))
         {
-            yield return request.SendWebRequest();
+            UnityWebRequestAsyncOperation operation;
 
-            if (request.result != UnityWebRequest.Result.Success)
+            try
             {
-                Debug.LogWarning($"Parameter request failed, using fallback. Error: {request.error}");
+                operation = request.SendWebRequest();
+            }
+            catch (InvalidOperationException exception)
+            {
+                Warn($"Запрос параметра не отправлен. Проверьте настройки HTTP/HTTPS в Unity. Используется значение по умолчанию. Ошибка: {exception.Message}");
                 ClearExperimentMeta();
-                onComplete(fallbackValue);
+                onComplete?.Invoke(defaultValue);
+                yield break;
+            }
+
+            yield return operation;
+
+            if (RequestFailed(request))
+            {
+                Warn($"Запрос параметра завершился ошибкой. Используется значение по умолчанию. Ошибка: {request.error}");
+                ClearExperimentMeta();
+                onComplete?.Invoke(defaultValue);
                 yield break;
             }
 
@@ -56,49 +123,119 @@ public class ParameterService : MonoBehaviour
 
             if (response == null || !response.found || response.use_fallback)
             {
+                if (response != null && (!response.found || response.source_reason == "unknown_parameter_key"))
+                {
+                    Warn($"Неизвестный ключ параметра \"{parameterKey}\". Параметр не был найден, установлено значение по умолчанию.");
+                }
+
                 ClearExperimentMeta();
-                onComplete(fallbackValue);
+                onComplete?.Invoke(defaultValue);
                 yield break;
             }
 
-            if (response.experiment_id > 0)
-            {
-                LastExperimentId = response.experiment_id;
-            }
-            else
-            {
-                LastExperimentId = null;
-            }
-            LastVariantCode = string.IsNullOrEmpty(response.variant_code) ? null : response.variant_code;
+            RememberExperimentMeta(response);
+            LogSystemParameterReason(response);
 
             try
             {
                 string rawValue = ExtractJsonValue(json, "parameter_value");
-                if (rawValue == null)
-                {
-                    onComplete(fallbackValue);
-                    yield break;
-                }
-
-                onComplete(ConvertValue(rawValue, typeof(T)));
+                onComplete?.Invoke(rawValue == null ? defaultValue : ConvertValue(rawValue, defaultValue));
             }
             catch (Exception exception)
             {
-                Debug.LogWarning($"Parameter conversion failed, using fallback. Error: {exception.Message}");
-                onComplete(fallbackValue);
+                Warn($"Не получилось преобразовать значение параметра. Используется значение по умолчанию. Ошибка: {exception.Message}");
+                onComplete?.Invoke(defaultValue);
             }
         }
     }
 
+    private bool CanRequestParameter(string parameterKey)
+    {
+        if (!IsInitialized)
+        {
+            Warn("ParameterService не инициализирован. Сначала нужно вызвать Initialize(apiBaseUrl, applicationId, userId).");
+            ClearExperimentMeta();
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(parameterKey))
+        {
+            Warn("Ключ параметра пустой. Используется значение по умолчанию.");
+            ClearExperimentMeta();
+            return false;
+        }
+
+        return true;
+    }
+
+    private void RememberExperimentMeta(ParameterResponse response)
+    {
+        LastExperimentId = response.experiment_id > 0 ? response.experiment_id : (long?)null;
+        LastVariantCode = string.IsNullOrEmpty(response.variant_code) ? null : response.variant_code;
+        LastSource = string.IsNullOrEmpty(response.source) ? null : response.source;
+    }
+
+    private void LogSystemParameterReason(ParameterResponse response)
+    {
+        if (response.source == "working_value" && response.source_reason == "no_active_experiment")
+        {
+            Warn("Активный эксперимент не найден. Взяли значение параметра из системы.");
+        }
+    }
+
+    private void ClearExperimentMeta()
+    {
+        LastExperimentId = null;
+        LastVariantCode = null;
+        LastSource = null;
+    }
+
+    private T ConvertValue<T>(string value, T defaultValue)
+    {
+        Type targetType = typeof(T);
+
+        if (targetType == typeof(float))
+        {
+            return (T)(object)float.Parse(value, CultureInfo.InvariantCulture);
+        }
+
+        if (targetType == typeof(int))
+        {
+            return (T)(object)int.Parse(value, CultureInfo.InvariantCulture);
+        }
+
+        if (targetType == typeof(bool))
+        {
+            if (bool.TryParse(value, out bool boolValue))
+            {
+                return (T)(object)boolValue;
+            }
+
+            return (T)(object)(value == "1");
+        }
+
+        if (targetType == typeof(string))
+        {
+            return (T)(object)value;
+        }
+
+        return defaultValue;
+    }
+
     private string ExtractJsonValue(string json, string key)
     {
-        Match match = Regex.Match(json, $"\"{key}\"\\s*:\\s*(\"(?:\\\\.|[^\"])*\"|true|false|null|-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)");
+        Match match = Regex.Match(
+            json,
+            $"\"{key}\"\\s*:\\s*(\"(?:\\\\.|[^\"])*\"|true|false|null|-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)"
+        );
+
         if (!match.Success || match.Groups[1].Value == "null")
         {
             return null;
         }
 
         string value = match.Groups[1].Value;
+
         if (value.StartsWith("\"") && value.EndsWith("\""))
         {
             value = value.Substring(1, value.Length - 2);
@@ -108,30 +245,26 @@ public class ParameterService : MonoBehaviour
         return value;
     }
 
-    private object ConvertValue(string value, Type targetType)
+    private string NormalizeBaseUrl(string value)
     {
-        if (targetType == typeof(float))
-        {
-            return float.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        if (targetType == typeof(int))
-        {
-            return int.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        if (targetType == typeof(bool))
-        {
-            return value.Equals("true", StringComparison.OrdinalIgnoreCase) || value == "1";
-        }
-
-        return value;
+        return value.Trim().TrimEnd('/');
     }
 
-    private void ClearExperimentMeta()
+    private bool RequestFailed(UnityWebRequest request)
     {
-        LastExperimentId = null;
-        LastVariantCode = null;
+#if UNITY_2020_2_OR_NEWER
+        return request.result != UnityWebRequest.Result.Success;
+#else
+        return request.isNetworkError || request.isHttpError;
+#endif
+    }
+
+    private void Warn(string message)
+    {
+        if (logWarnings)
+        {
+            Debug.LogWarning(message);
+        }
     }
 
     [Serializable]
@@ -141,6 +274,7 @@ public class ParameterService : MonoBehaviour
         public string parameter_key;
         public string parameter_type;
         public string source;
+        public string source_reason;
         public long experiment_id;
         public string variant_code;
         public bool use_fallback;

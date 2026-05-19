@@ -38,5 +38,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(port, () => {
-  console.log(`Unity A/B Testing MVP backend is running on http://localhost:${port}`);
+  console.log(`Backend для A/B-тестирования запущен: http://localhost:${port}`);
 });

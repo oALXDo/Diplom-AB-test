@@ -140,6 +140,7 @@ function translateToastMessage(message) {
     'Account with this email already exists': 'Аккаунт с таким email уже существует.',
     'Invalid email or password': 'Неверный email или пароль.',
     'account_id and name are required': 'Укажите аккаунт и название приложения.',
+    'account_id is required': 'Укажите аккаунт.',
     'name is required': 'Укажите название.',
     'Application not found': 'Приложение не найдено.',
     'parameter_key, parameter_name, parameter_type and parameter_value are required': 'Заполните ключ, название, тип и значение параметра.',
@@ -247,6 +248,23 @@ function currentValue(parameter) {
   return valueToString(parameter?.parameter_value);
 }
 
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(String(text));
+    return;
+  }
+
+  const input = document.createElement('textarea');
+  input.value = String(text);
+  input.setAttribute('readonly', '');
+  input.style.position = 'fixed';
+  input.style.opacity = '0';
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand('copy');
+  input.remove();
+}
+
 function valuePlaceholder(type) {
   if (type === 'int') return 'Например: 100';
   if (type === 'float') return 'Например: 1.5';
@@ -307,7 +325,8 @@ function bindTypedValueControls(scope = document) {
 }
 
 async function loadApplications() {
-  const applications = await requestJson(`${API_BASE}/applications`);
+  const query = new URLSearchParams({ account_id: state.currentUser.account_id }).toString();
+  const applications = await requestJson(`${API_BASE}/applications?${query}`);
   state.applications = sortByActivity(applications, 'application', 'application_id');
 
   const selectedExists = state.applications.some((app) => Number(app.application_id) === Number(state.selectedApplicationId));
@@ -670,6 +689,10 @@ function renderAppShell(content) {
       <aside class="sidebar">
         <h2 class="sidebar-title">${escapeHtml(app.name)}</h2>
         <p class="sidebar-version">${appVersion(app)}</p>
+        <button class="app-id-copy" type="button" data-copy-app-id="${app.application_id}" title="Скопировать ID приложения">
+          <span>ID приложения</span>
+          <strong>${app.application_id}</strong>
+        </button>
         <nav class="side-nav">
           <div class="side-link ${state.view === 'parameters' ? 'active' : ''}" data-side-view="parameters">${icon('sliders')} Параметры</div>
           <div class="side-link ${state.view === 'experiments' ? 'active' : ''}" data-side-view="experiments">${icon('flask')} Эксперименты</div>
@@ -684,6 +707,11 @@ function renderAppShell(content) {
   `;
 
   bindCommonEvents();
+  document.querySelector('[data-copy-app-id]')?.addEventListener('click', async (event) => {
+    const applicationId = event.currentTarget.dataset.copyAppId;
+    await copyTextToClipboard(applicationId);
+    showToast(`ID приложения ${applicationId} скопирован`);
+  });
   document.querySelectorAll('[data-side-view]').forEach((link) => {
     link.addEventListener('click', () => {
       state.view = link.dataset.sideView;

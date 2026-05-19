@@ -5,6 +5,7 @@ DROP TABLE IF EXISTS user_variant_assignments CASCADE;
 DROP TABLE IF EXISTS experiment_parameters CASCADE;
 DROP TABLE IF EXISTS experiments CASCADE;
 DROP TABLE IF EXISTS parameters CASCADE;
+DROP TABLE IF EXISTS application_accounts CASCADE;
 DROP TABLE IF EXISTS applications CASCADE;
 DROP TABLE IF EXISTS accounts CASCADE;
 
@@ -17,10 +18,15 @@ CREATE TABLE accounts (
 
 CREATE TABLE applications (
     application_id BIGSERIAL PRIMARY KEY,
-    account_id BIGINT NOT NULL REFERENCES accounts(account_id),
     name VARCHAR(255) NOT NULL,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE application_accounts (
+    application_id BIGINT NOT NULL REFERENCES applications(application_id) ON DELETE CASCADE,
+    account_id BIGINT NOT NULL REFERENCES accounts(account_id) ON DELETE CASCADE,
+    CONSTRAINT pk_application_accounts PRIMARY KEY(application_id, account_id)
 );
 
 CREATE TABLE parameters (
@@ -115,3 +121,4 @@ CREATE INDEX ix_parameters_application_id ON parameters(application_id);
 CREATE INDEX ix_experiments_application_id ON experiments(application_id);
 CREATE INDEX ix_experiment_parameters_experiment_id ON experiment_parameters(experiment_id);
 CREATE INDEX ix_user_variant_assignments_experiment_id ON user_variant_assignments(experiment_id);
+CREATE INDEX ix_application_accounts_account_id ON application_accounts(account_id);

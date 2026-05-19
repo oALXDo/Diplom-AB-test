@@ -164,6 +164,24 @@ router.delete('/experiments/:experimentId/parameters/:parameterId', async (req, 
 
 router.post('/experiments/:experimentId/start', async (req, res, next) => {
   try {
+    const experiment = await db.query(
+      `SELECT e.status,
+              COUNT(ep.experiment_parameter_id)::int AS parameter_count
+       FROM experiments e
+       LEFT JOIN experiment_parameters ep ON ep.experiment_id = e.experiment_id
+       WHERE e.experiment_id = $1
+       GROUP BY e.experiment_id`,
+      [req.params.experimentId]
+    );
+
+    if (experiment.rowCount === 0 || experiment.rows[0].status !== 'draft') {
+      return res.status(400).json({ error: 'Эксперимент не найден или уже не является черновиком.' });
+    }
+
+    if (experiment.rows[0].parameter_count === 0) {
+      return res.status(400).json({ error: 'Добавьте в эксперимент хотя бы один параметр перед запуском.' });
+    }
+
     const result = await db.query(
       `UPDATE experiments
        SET status = 'active',

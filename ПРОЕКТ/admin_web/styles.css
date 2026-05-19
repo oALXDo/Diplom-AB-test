@@ -478,8 +478,42 @@ button {
 }
 
 .sidebar-version {
-  margin: 0 0 34px;
+  margin: 0 0 14px;
   color: #64748b;
+}
+
+.app-id-copy {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 34px;
+  border: 1px solid #dbe7ff;
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: #1d63d9;
+  background: #f3f8ff;
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.app-id-copy:hover {
+  border-color: #2B7FFF;
+  background: #eef5ff;
+  box-shadow: 0 10px 24px rgba(43, 127, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.app-id-copy span {
+  color: #657284;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.app-id-copy strong {
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 18px;
 }
 
 .side-nav {
