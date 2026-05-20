@@ -30,7 +30,7 @@ INSERT INTO parameters (
     description,
     value_string
 )
-SELECT app.application_id, 'background_color', 'Цвет на заднем плане', 'string', 'Цвет фона интерфейса магазина.', '#ffffff'
+SELECT app.application_id, 'background_color', 'Цвет на заднем плане', 'string', 'Цвет фона интерфейса магазина.', '#F0F4F8'
 FROM applications app
 WHERE app.name = 'Тестовое Приложение'
 ON CONFLICT (application_id, parameter_key) DO UPDATE
@@ -164,7 +164,7 @@ INSERT INTO experiment_parameters (
     variant_a_value_string,
     variant_b_value_string
 )
-SELECT e.experiment_id, p.parameter_id, '#ffffff', '#2B2B2B'
+SELECT e.experiment_id, p.parameter_id, '#F0F4F8', '#0F172A'
 FROM experiments e
 JOIN parameters p ON p.application_id = e.application_id
 WHERE e.name = 'Новые цены и интерфейс'
