@@ -1,8 +1,8 @@
 const API_BASE = '/api';
 const STORAGE_USER_KEY = 'parametrika_user';
-const STORAGE_APP_ICONS_KEY = 'parametrika_app_icons';
 const STORAGE_ACTIVITY_KEY = 'parametrika_activity';
 const SITE_ICON_SRC = 'assets/site-icon.png';
+const DEFAULT_APP_ICON_SRC = 'assets/default-app-icon.svg';
 
 const state = {
   currentUser: readStoredUser(),
@@ -23,25 +23,6 @@ const state = {
 
 const root = document.querySelector('#app');
 let toastTimer = null;
-
-function readAppIcons() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_APP_ICONS_KEY)) || {};
-  } catch (error) {
-    return {};
-  }
-}
-
-function writeAppIcon(applicationId, iconValue) {
-  const icons = readAppIcons();
-  icons[String(applicationId)] = iconValue;
-  localStorage.setItem(STORAGE_APP_ICONS_KEY, JSON.stringify(icons));
-}
-
-function visualAppIcon(app, fallbackIndex = 0) {
-  const icons = readAppIcons();
-  return icons[String(app.application_id)] || appIcon(fallbackIndex);
-}
 
 function readActivityMap() {
   try {
@@ -198,14 +179,14 @@ function icon(name) {
   return icons[name] || '';
 }
 
-function appIcon(index) {
-  const icons = ['🛍️', '📱', '⚙️', '🎮', '🧪', '📊'];
-  return icons[index % icons.length];
-}
-
 function formatDate(value) {
   if (!value) return '—';
   return new Date(value).toLocaleDateString('ru-RU');
+}
+
+function appIconMarkup(app, className = 'app-icon-image') {
+  const src = app?.icon_url || DEFAULT_APP_ICON_SRC;
+  return `<img class="${escapeHtml(className)}" src="${escapeHtml(src)}" alt="">`;
 }
 
 function appVersion(app) {
@@ -503,9 +484,9 @@ async function handleAuthSubmit(event) {
 
 function renderApplicationsPage() {
   const applications = sortByActivity(state.applications, 'application', 'application_id');
-  const rows = applications.map((app, index) => `
+  const rows = applications.map((app) => `
     <tr data-open-app="${app.application_id}" data-search-text="${escapeHtml(`${app.name} ${app.description || ''}`.toLowerCase())}">
-      <td><span class="app-icon">${visualAppIcon(app, index)}</span></td>
+      <td><span class="app-icon">${appIconMarkup(app)}</span></td>
       <td><strong>${escapeHtml(app.name)}</strong></td>
       <td class="muted">${escapeHtml(app.description || 'Без описания')}</td>
       <td class="mono">${appVersion(app).replace('v', '')}</td>
@@ -585,11 +566,98 @@ function renderApplicationsPage() {
   });
 }
 
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob(resolve, type, quality);
+  });
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Не удалось прочитать изображение.'));
+    };
+    image.src = url;
+  });
+}
+
+async function compressIconFile(file) {
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+
+  if (!file || !file.type.startsWith('image/')) {
+    throw new Error('Выберите файл изображения.');
+  }
+
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Поддерживаются только PNG, JPG и WEBP.');
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error('Исходная иконка слишком большая. Выберите файл до 5 МБ.');
+  }
+
+  const image = await loadImageFromFile(file);
+
+  if (image.width !== image.height) {
+    throw new Error('Иконка должна быть квадратной, например 512×512 или 1024×1024.');
+  }
+
+  const maxSize = 512;
+  const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, width, height);
+
+  let blob = null;
+  for (const quality of [0.82, 0.72, 0.62]) {
+    blob = await canvasToBlob(canvas, 'image/webp', quality);
+    if (blob && blob.size <= 700 * 1024) break;
+  }
+
+  if (!blob) {
+    blob = await canvasToBlob(canvas, 'image/png');
+  }
+
+  if (!blob || blob.size > 900 * 1024) {
+    throw new Error('Не удалось сжать иконку до безопасного размера.');
+  }
+
+  return {
+    image_data_url: await blobToDataUrl(blob),
+    content_type: blob.type || 'image/webp',
+    original_name: file.name,
+    size: blob.size
+  };
+}
+
 function renderApplicationForm() {
   const app = state.editingApplicationId
     ? state.applications.find((item) => Number(item.application_id) === Number(state.editingApplicationId))
     : null;
   const isEdit = Boolean(app);
+  let selectedIconPayload = null;
+  let shouldResetIcon = false;
 
   root.innerHTML = `
     ${renderTopbar()}
@@ -598,18 +666,24 @@ function renderApplicationForm() {
       <h1 class="page-title">${isEdit ? 'Редактировать приложение' : 'Добавить приложение'}</h1>
       <form class="form-card form-grid" id="applicationForm">
         <div class="upload-row">
-          <div class="upload-box" id="appIconPreview">${escapeHtml(app ? visualAppIcon(app) : '🛍️')}</div>
+          <div class="upload-box" id="appIconPreview">${appIconMarkup(app, 'app-icon-preview-image')}</div>
           <div class="upload-copy">
             <strong>Иконка приложения</strong>
-            <span class="muted">В MVP иконка хранится локально в браузере, без изменения структуры БД.</span>
+            <span class="muted">PNG, JPG или WEBP. Изображение должно быть квадратным и весить до 5 МБ.</span>
+            ${app?.icon_url ? '<button class="secondary-button compact-button" type="button" id="resetApplicationIcon">Иконка по умолчанию</button>' : ''}
           </div>
         </div>
-        <label class="field">
-          <span>Выбрать иконку</span>
-          <select name="icon_value" id="appIconSelect">
-            ${['🛍️', '📱', '⚙️', '🎮', '🧪', '📊', '🚀', '💎'].map((item) => `<option value="${item}" ${item === (app ? visualAppIcon(app) : '🛍️') ? 'selected' : ''}>${item}</option>`).join('')}
-          </select>
-        </label>
+        <div class="field upload-field">
+          <span>Загрузить свою иконку</span>
+          <input class="visually-hidden" name="icon_file" id="appIconFile" type="file" accept="image/png,image/jpeg,image/webp">
+          <label class="file-upload-control" for="appIconFile">
+            <span class="file-upload-icon">${icon('upload')}</span>
+            <span class="file-upload-copy">
+              <strong>Выбрать изображение</strong>
+              <small id="appIconFileName">Файл не выбран</small>
+            </span>
+          </label>
+        </div>
         <label class="field">
           <span>Название приложения</span>
           <input name="name" placeholder="Например: E-commerce Platform" value="${escapeHtml(app?.name || '')}" required>
@@ -627,18 +701,88 @@ function renderApplicationForm() {
   `;
 
   bindCommonEvents();
+  const applicationForm = document.querySelector('#applicationForm');
+  const iconFileInput = document.querySelector('#appIconFile');
+  const iconFileName = document.querySelector('#appIconFileName');
+  const iconPreview = document.querySelector('#appIconPreview');
+
+  async function handleIconFile(file) {
+    if (!file) return;
+    try {
+      selectedIconPayload = await compressIconFile(file);
+      shouldResetIcon = false;
+      iconPreview.innerHTML = `<img class="app-icon-preview-image" src="${escapeHtml(selectedIconPayload.image_data_url)}" alt="">`;
+      iconFileName.textContent = `${file.name} · ${Math.ceil(selectedIconPayload.size / 1024)} КБ`;
+      showToast('Иконка подготовлена к загрузке');
+    } catch (error) {
+      selectedIconPayload = null;
+      shouldResetIcon = false;
+      iconFileInput.value = '';
+      iconFileName.textContent = 'Файл не выбран';
+      showToast(error.message, true);
+    }
+  }
+
+  const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
+  window.appIconDropCleanup?.();
+  const handleDragEnter = (event) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    applicationForm.classList.add('is-dragging-icon');
+  };
+  const handleDragOver = (event) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    applicationForm.classList.add('is-dragging-icon');
+  };
+  const handleDragLeave = (event) => {
+    if (event.clientX <= 0 || event.clientY <= 0 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight) {
+      applicationForm.classList.remove('is-dragging-icon');
+    }
+  };
+  const handleDrop = async (event) => {
+    if (!event.dataTransfer?.files?.length) return;
+    event.preventDefault();
+    applicationForm.classList.remove('is-dragging-icon');
+    await handleIconFile(event.dataTransfer.files[0]);
+  };
+  document.addEventListener('dragenter', handleDragEnter);
+  document.addEventListener('dragover', handleDragOver);
+  document.addEventListener('dragleave', handleDragLeave);
+  document.addEventListener('drop', handleDrop);
+  window.appIconDropCleanup = () => {
+    document.removeEventListener('dragenter', handleDragEnter);
+    document.removeEventListener('dragover', handleDragOver);
+    document.removeEventListener('dragleave', handleDragLeave);
+    document.removeEventListener('drop', handleDrop);
+    window.appIconDropCleanup = null;
+  };
+
+  iconFileInput.addEventListener('change', async (event) => {
+    await handleIconFile(event.target.files?.[0]);
+  });
+
+  document.querySelector('#resetApplicationIcon')?.addEventListener('click', async () => {
+    if (!app) return;
+    selectedIconPayload = null;
+    shouldResetIcon = true;
+    iconFileInput.value = '';
+    iconFileName.textContent = 'Файл не выбран';
+    iconPreview.innerHTML = appIconMarkup(null, 'app-icon-preview-image');
+    document.querySelector('#resetApplicationIcon')?.remove();
+    showToast('Иконка по умолчанию будет применена после сохранения');
+  });
   document.querySelector('#backToApps').addEventListener('click', () => {
+    window.appIconDropCleanup?.();
     state.editingApplicationId = null;
     state.view = 'applications';
     render();
   });
   document.querySelector('#cancelApplicationForm').addEventListener('click', () => {
+    window.appIconDropCleanup?.();
     state.editingApplicationId = null;
     state.view = 'applications';
     render();
-  });
-  document.querySelector('#appIconSelect').addEventListener('change', (event) => {
-    document.querySelector('#appIconPreview').textContent = event.target.value;
   });
   document.querySelector('#applicationForm').addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -651,7 +795,24 @@ function renderApplicationForm() {
           description: data.description
         })
       });
-      writeAppIcon(app.application_id, data.icon_value);
+      if (shouldResetIcon) {
+        try {
+          await requestJson(`${API_BASE}/applications/${app.application_id}/icon`, { method: 'DELETE' });
+        } catch (error) {
+          showToast(`Не удалось сбросить иконку: ${error.message}`, true);
+          return;
+        }
+      } else if (selectedIconPayload) {
+        try {
+          await requestJson(`${API_BASE}/applications/${app.application_id}/icon`, {
+            method: 'POST',
+            body: JSON.stringify(selectedIconPayload)
+          });
+        } catch (error) {
+          showToast(`Не удалось загрузить иконку: ${error.message}`, true);
+          return;
+        }
+      }
       touchActivity('application', app.application_id);
       showToast('Приложение обновлено');
     } else {
@@ -664,10 +825,21 @@ function renderApplicationForm() {
         })
       });
       state.selectedApplicationId = created.application_id;
-      writeAppIcon(created.application_id, data.icon_value);
+      if (selectedIconPayload) {
+        try {
+          await requestJson(`${API_BASE}/applications/${created.application_id}/icon`, {
+            method: 'POST',
+            body: JSON.stringify(selectedIconPayload)
+          });
+        } catch (error) {
+          showToast(`Не удалось загрузить иконку: ${error.message}`, true);
+          return;
+        }
+      }
       touchActivity('application', created.application_id);
       showToast('Приложение создано');
     }
+    window.appIconDropCleanup?.();
     state.editingApplicationId = null;
     state.view = isEdit ? 'applications' : 'parameters';
     await loadApplications();
@@ -1308,11 +1480,13 @@ function openFinishExperimentModal(experimentId) {
 
 function bindCommonEvents() {
   document.querySelector('#logoutButton')?.addEventListener('click', () => {
+    window.appIconDropCleanup?.();
     clearUser();
     state.view = 'applications';
     renderAuth();
   });
   document.querySelector('#homeBrand')?.addEventListener('click', () => {
+    window.appIconDropCleanup?.();
     state.view = 'applications';
     state.selectedParameterId = null;
     state.selectedExperimentId = null;
@@ -1321,6 +1495,7 @@ function bindCommonEvents() {
   document.querySelector('#homeBrand')?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
+      window.appIconDropCleanup?.();
       state.view = 'applications';
       renderApplicationsPage();
     }

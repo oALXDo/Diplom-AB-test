@@ -15,6 +15,10 @@ WHERE NOT EXISTS (
     WHERE app.name = 'Тестовое Приложение'
 );
 
+UPDATE applications
+SET icon_url = NULL
+WHERE name = 'Тестовое Приложение';
+
 INSERT INTO application_accounts (application_id, account_id)
 SELECT app.application_id, a.account_id
 FROM applications app

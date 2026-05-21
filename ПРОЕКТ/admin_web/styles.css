@@ -294,12 +294,22 @@ button {
 
 .app-icon {
   display: grid;
-  width: 52px;
-  height: 52px;
+  width: 58px;
+  height: 58px;
+  aspect-ratio: 1 / 1;
   place-items: center;
   border-radius: 13px;
   background: #f1f4f8;
   font-size: 24px;
+  overflow: hidden;
+}
+
+.app-icon-image,
+.app-icon-preview-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .badge {
@@ -358,6 +368,16 @@ button {
 
 .form-card {
   padding: 40px;
+}
+
+#applicationForm {
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+#applicationForm.is-dragging-icon {
+  border-color: var(--blue);
+  background: #fbfdff;
+  box-shadow: 0 0 0 4px rgba(36, 104, 255, 0.12);
 }
 
 .page-title + .form-card,
@@ -439,25 +459,138 @@ button {
 .upload-row {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 34px;
 }
 
 .upload-box {
   display: grid;
-  width: 104px;
-  height: 104px;
+  width: 132px;
+  height: 132px;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 132px;
   place-items: center;
   border: 2px dashed #cfd8e5;
-  border-radius: 14px;
+  border-radius: 18px;
   color: #9aa6b7;
   background: #f9fafb;
+  overflow: hidden;
 }
 
 .upload-copy strong {
   display: block;
   color: var(--blue);
-  font-size: 18px;
+  font-size: 20px;
   margin-bottom: 8px;
+}
+
+.upload-copy .muted {
+  display: block;
+  max-width: 520px;
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.upload-field {
+  gap: 12px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.field input.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  padding: 0;
+  opacity: 0;
+}
+
+.file-upload-control {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 76px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  padding: 14px 18px;
+  color: #334155;
+  background: #fbfdff;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.file-upload-control:hover {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  box-shadow: 0 10px 24px rgba(43, 127, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+#applicationForm.is-dragging-icon .file-upload-control {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+#appIconFile:focus-visible + .file-upload-control {
+  border-color: var(--blue);
+  outline: 2px solid #2B7FFF;
+  outline-offset: 2px;
+}
+
+.file-upload-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--blue);
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(36, 104, 255, 0.12);
+}
+
+.file-upload-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.file-upload-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.file-upload-copy strong {
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.file-upload-copy small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-button {
+  width: fit-content;
+  min-height: 40px;
+  height: 40px;
+  margin-top: 14px;
+  border-radius: 12px;
+  padding: 0 16px;
+  font-size: 14px;
 }
 
 .app-shell {
@@ -1012,6 +1145,18 @@ pre {
 
   .traffic-grid {
     grid-template-columns: 1fr;
+  }
+
+  .upload-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .upload-box {
+    width: 128px;
+    height: 128px;
+    flex-basis: 128px;
   }
 }
 

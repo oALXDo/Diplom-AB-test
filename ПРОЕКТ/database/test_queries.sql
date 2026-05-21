@@ -2,6 +2,7 @@
 
 SELECT * FROM accounts;
 SELECT * FROM applications;
+SELECT application_id, name, icon_url FROM applications ORDER BY application_id;
 SELECT * FROM application_accounts;
 SELECT * FROM parameters ORDER BY parameter_id;
 SELECT * FROM experiments ORDER BY experiment_id;
