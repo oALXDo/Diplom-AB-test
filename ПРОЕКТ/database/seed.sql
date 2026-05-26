@@ -1,30 +1,30 @@
 -- Тестовые данные для проверки работы системы.
--- Выполняю после database/schema.sql при пересоздании базы.
+-- Выполнять после database/schema.sql при пересоздании базы.
 
 INSERT INTO accounts (email, password_hash)
 VALUES ('admin@example.com', 'demo_hash_not_for_production')
 ON CONFLICT (email) DO NOTHING;
 
-INSERT INTO applications (name, description)
+INSERT INTO applications (account_id, name, description)
 SELECT
+    a.account_id,
     'Тестовое Приложение',
-    'Приложения с витриной магазина, в которой меняются различные параметры'
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM applications app
-    WHERE app.name = 'Тестовое Приложение'
-);
+    'Приложение с витриной магазина, в которой меняются различные параметры'
+FROM accounts a
+WHERE a.email = 'admin@example.com'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM applications app
+      WHERE app.account_id = a.account_id
+        AND app.name = 'Тестовое Приложение'
+  );
 
-UPDATE applications
+UPDATE applications app
 SET icon_url = NULL
-WHERE name = 'Тестовое Приложение';
-
-INSERT INTO application_accounts (application_id, account_id)
-SELECT app.application_id, a.account_id
-FROM applications app
-JOIN accounts a ON a.email = 'admin@example.com'
-WHERE app.name = 'Тестовое Приложение'
-ON CONFLICT (application_id, account_id) DO NOTHING;
+FROM accounts a
+WHERE app.account_id = a.account_id
+  AND a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение';
 
 INSERT INTO parameters (
     application_id,
@@ -36,7 +36,9 @@ INSERT INTO parameters (
 )
 SELECT app.application_id, 'background_color', 'Цвет на заднем плане', 'string', 'Цвет фона интерфейса магазина.', '#F0F4F8'
 FROM applications app
-WHERE app.name = 'Тестовое Приложение'
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
 ON CONFLICT (application_id, parameter_key) DO UPDATE
 SET parameter_name = EXCLUDED.parameter_name,
     parameter_type = EXCLUDED.parameter_type,
@@ -56,7 +58,9 @@ INSERT INTO parameters (
 )
 SELECT app.application_id, 'offer_1_show', 'Показывать предложение 1', 'bool', 'Управляет отображением первого предложения в магазине.', TRUE
 FROM applications app
-WHERE app.name = 'Тестовое Приложение'
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
 ON CONFLICT (application_id, parameter_key) DO UPDATE
 SET parameter_name = EXCLUDED.parameter_name,
     parameter_type = EXCLUDED.parameter_type,
@@ -76,7 +80,9 @@ INSERT INTO parameters (
 )
 SELECT app.application_id, 'item_2_price', 'Стоимость Предмета 2', 'float', 'Цена второго предмета в магазине.', 60.700000
 FROM applications app
-WHERE app.name = 'Тестовое Приложение'
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
 ON CONFLICT (application_id, parameter_key) DO UPDATE
 SET parameter_name = EXCLUDED.parameter_name,
     parameter_type = EXCLUDED.parameter_type,
@@ -96,7 +102,9 @@ INSERT INTO parameters (
 )
 SELECT app.application_id, 'item_1_price', 'Стоимость Предмета 1', 'int', 'Цена первого предмета в магазине.', 20
 FROM applications app
-WHERE app.name = 'Тестовое Приложение'
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
 ON CONFLICT (application_id, parameter_key) DO UPDATE
 SET parameter_name = EXCLUDED.parameter_name,
     parameter_type = EXCLUDED.parameter_type,
@@ -116,7 +124,9 @@ INSERT INTO parameters (
 )
 SELECT app.application_id, 'item_2_name', 'Название Предмета 2', 'string', 'Название второго предмета в магазине.', 'Предмет 2'
 FROM applications app
-WHERE app.name = 'Тестовое Приложение'
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
 ON CONFLICT (application_id, parameter_key) DO UPDATE
 SET parameter_name = EXCLUDED.parameter_name,
     parameter_type = EXCLUDED.parameter_type,
@@ -136,7 +146,9 @@ INSERT INTO parameters (
 )
 SELECT app.application_id, 'item_1_name', 'Название Предмета 1', 'string', 'Название первого предмета в магазине.', 'Предмет 1'
 FROM applications app
-WHERE app.name = 'Тестовое Приложение'
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
 ON CONFLICT (application_id, parameter_key) DO UPDATE
 SET parameter_name = EXCLUDED.parameter_name,
     parameter_type = EXCLUDED.parameter_type,
@@ -154,7 +166,9 @@ SELECT
     'active',
     CURRENT_TIMESTAMP
 FROM applications app
-WHERE app.name = 'Тестовое Приложение'
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
   AND NOT EXISTS (
       SELECT 1
       FROM experiments e
@@ -171,7 +185,11 @@ INSERT INTO experiment_parameters (
 SELECT e.experiment_id, p.parameter_id, '#F0F4F8', '#0F172A'
 FROM experiments e
 JOIN parameters p ON p.application_id = e.application_id
-WHERE e.name = 'Новые цены и интерфейс'
+JOIN applications app ON app.application_id = e.application_id
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
+  AND e.name = 'Новые цены и интерфейс'
   AND p.parameter_key = 'background_color'
 ON CONFLICT (experiment_id, parameter_id) DO UPDATE
 SET variant_a_value_int = NULL,
@@ -192,7 +210,11 @@ INSERT INTO experiment_parameters (
 SELECT e.experiment_id, p.parameter_id, FALSE, TRUE
 FROM experiments e
 JOIN parameters p ON p.application_id = e.application_id
-WHERE e.name = 'Новые цены и интерфейс'
+JOIN applications app ON app.application_id = e.application_id
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
+  AND e.name = 'Новые цены и интерфейс'
   AND p.parameter_key = 'offer_1_show'
 ON CONFLICT (experiment_id, parameter_id) DO UPDATE
 SET variant_a_value_int = NULL,
@@ -213,7 +235,11 @@ INSERT INTO experiment_parameters (
 SELECT e.experiment_id, p.parameter_id, 'Предмет 1', 'Товар 1'
 FROM experiments e
 JOIN parameters p ON p.application_id = e.application_id
-WHERE e.name = 'Новые цены и интерфейс'
+JOIN applications app ON app.application_id = e.application_id
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
+  AND e.name = 'Новые цены и интерфейс'
   AND p.parameter_key = 'item_1_name'
 ON CONFLICT (experiment_id, parameter_id) DO UPDATE
 SET variant_a_value_int = NULL,
@@ -234,7 +260,11 @@ INSERT INTO experiment_parameters (
 SELECT e.experiment_id, p.parameter_id, 'Предмет 2', 'Товар 2'
 FROM experiments e
 JOIN parameters p ON p.application_id = e.application_id
-WHERE e.name = 'Новые цены и интерфейс'
+JOIN applications app ON app.application_id = e.application_id
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
+  AND e.name = 'Новые цены и интерфейс'
   AND p.parameter_key = 'item_2_name'
 ON CONFLICT (experiment_id, parameter_id) DO UPDATE
 SET variant_a_value_int = NULL,
@@ -255,7 +285,11 @@ INSERT INTO experiment_parameters (
 SELECT e.experiment_id, p.parameter_id, 20, 33
 FROM experiments e
 JOIN parameters p ON p.application_id = e.application_id
-WHERE e.name = 'Новые цены и интерфейс'
+JOIN applications app ON app.application_id = e.application_id
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
+  AND e.name = 'Новые цены и интерфейс'
   AND p.parameter_key = 'item_1_price'
 ON CONFLICT (experiment_id, parameter_id) DO UPDATE
 SET variant_a_value_int = EXCLUDED.variant_a_value_int,
@@ -276,7 +310,11 @@ INSERT INTO experiment_parameters (
 SELECT e.experiment_id, p.parameter_id, 60.700000, 88.500000
 FROM experiments e
 JOIN parameters p ON p.application_id = e.application_id
-WHERE e.name = 'Новые цены и интерфейс'
+JOIN applications app ON app.application_id = e.application_id
+JOIN accounts a ON a.account_id = app.account_id
+WHERE a.email = 'admin@example.com'
+  AND app.name = 'Тестовое Приложение'
+  AND e.name = 'Новые цены и интерфейс'
   AND p.parameter_key = 'item_2_price'
 ON CONFLICT (experiment_id, parameter_id) DO UPDATE
 SET variant_a_value_int = NULL,
